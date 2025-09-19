@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import os
+import sys
+from pathlib import Path
 from collections import defaultdict
 from scipy import stats
 import time
@@ -144,6 +146,39 @@ class VehicleTracker:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
 
+def find_video_file(video_filename):
+    """跨平台查找视频文件"""
+    # 获取当前脚本所在目录
+    script_dir = Path(__file__).parent.absolute()
+    
+    # 可能的视频文件位置
+    possible_paths = [
+        script_dir / video_filename,  # 当前目录
+        script_dir.parent / video_filename,  # 上级目录
+        Path.cwd() / video_filename,  # 当前工作目录
+        Path.home() / "Videos" / video_filename,  # Windows/macOS 视频目录
+        Path.home() / "Desktop" / video_filename,  # 桌面
+        Path.home() / "Downloads" / video_filename,  # 下载目录
+    ]
+    
+    # 检查每个可能的位置
+    for path in possible_paths:
+        if path.exists() and path.is_file():
+            print(f"找到视频文件: {path}")
+            return str(path)
+    
+    # 如果都没找到，尝试在当前目录及其子目录中搜索
+    print(f"在标准位置未找到 {video_filename}，正在搜索...")
+    for root, dirs, files in os.walk(script_dir):
+        for file in files:
+            if file.lower() == video_filename.lower():
+                found_path = Path(root) / file
+                print(f"在子目录中找到视频文件: {found_path}")
+                return str(found_path)
+    
+    return None
+
+
 def process_video(video_path, model_path='yolov8n.pt'):
     """Process video with vehicle tracking and counting"""
     # Initialize tracker
@@ -266,15 +301,50 @@ def process_video(video_path, model_path='yolov8n.pt'):
 
 
 if __name__ == "__main__":
-    # First download the model if it doesn't exist
-    if not os.path.exists('yolov8n.pt'):
-        print("Downloading YOLOv8n model...")
-        from download_yolov8n import download_yolov8n
-        download_yolov8n()
+    # 获取当前脚本目录
+    script_dir = Path(__file__).parent.absolute()
     
-    # Process video
-    video_file = "traffic_cctv.mp4"
-    if os.path.exists(video_file):
-        process_video(video_file)
+    # 首先下载模型（如果不存在）
+    model_path = script_dir / 'yolov8n.pt'
+    if not model_path.exists():
+        print("正在下载 YOLOv8n 模型...")
+        try:
+            from download_yolov8n import download_yolov8n
+            download_yolov8n()
+        except ImportError:
+            print("警告: 无法导入 download_yolov8n，请确保该文件存在")
+    
+    # 查找视频文件
+    video_filename = "traffic_cctv.mp4"
+    video_path = find_video_file(video_filename)
+    
+    if video_path:
+        print(f"开始处理视频: {video_path}")
+        process_video(video_path, str(model_path))
     else:
-        print(f"Video file {video_file} not found!")
+        print(f"错误: 未找到视频文件 {video_filename}")
+        print("\n请确保视频文件位于以下位置之一:")
+        print(f"  - {script_dir / video_filename}")
+        print(f"  - {script_dir.parent / video_filename}")
+        print(f"  - {Path.cwd() / video_filename}")
+        print(f"  - {Path.home() / 'Videos' / video_filename}")
+        print(f"  - {Path.home() / 'Desktop' / video_filename}")
+        print(f"  - {Path.home() / 'Downloads' / video_filename}")
+        print(f"\n或者将视频文件重命名为 '{video_filename}' 并放在当前目录中")
+        
+        # 提供交互式文件选择
+        print("\n是否要手动选择视频文件? (y/n): ", end="")
+        try:
+            response = input().strip().lower()
+            if response in ['y', 'yes', '是']:
+                print("请输入视频文件的完整路径:")
+                manual_path = input().strip()
+                # 处理路径中的引号
+                manual_path = manual_path.strip('"\'')
+                if Path(manual_path).exists():
+                    print(f"开始处理视频: {manual_path}")
+                    process_video(manual_path, str(model_path))
+                else:
+                    print(f"错误: 文件不存在 {manual_path}")
+        except (KeyboardInterrupt, EOFError):
+            print("\n程序已取消")
