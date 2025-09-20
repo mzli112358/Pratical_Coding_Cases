@@ -1,0 +1,18 @@
+# YOLO面部关键点实时检测系统依赖包
+
+# 核心依赖
+ultralytics>=8.0.0
+opencv-python>=4.5.0
+numpy>=1.21.0
+torch>=1.9.0
+torchvision>=0.10.0
+
+# 可选依赖（用于更好的性能）
+# pillow>=8.0.0
+# matplotlib>=3.3.0
+# tqdm>=4.60.0
+
+# 系统要求：
+# - Python 3.8+
+# - 支持CUDA的GPU（可选，用于加速）
+# - 摄像头设备（用于实时检测）
